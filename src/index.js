@@ -3,24 +3,70 @@ const printPdfContent = require('./pdfPrinter.JS');
 require('dotenv').config();
 
 async function iniciarAventura() {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
 
   await page.goto(process.env.MAIN_PAGE);
 
   await login(page);
-  const path = await downloadCodexAureusdeEchternach(page);
+  const path = await downloadPDF(page, './sigloXIV.pdf');
   console.log('📄 Archivo descargado en:', path);
 
-  const success = await printPdfContent(path);
-  if (!success) {
-    console.warn('❌ Retrying download and parse...');
-    await page.waitForTimeout(1000);
-    await iniciarAventura();
+  let pdfData = await printPdfContent(path);
+  await page.waitForTimeout(1000);
+  while (! pdfData) {
+    console.warn('❌ Retrying parse...');
+    pdfData = await printPdfContent(path)
+  }
+  const code = extractAccessCode(pdfData.text) 
+  console.log(code)
+  const inputSigloXV = await getInputByCentury(page, "Siglo XV")
+  await inputSigloXV.fill(code);
+  await inputSigloXV.press('Enter');
+  await downloadPDF(page, './sigloXV.pdf');
+  let pdfDataSigloXV = await printPdfContent('./sigloXV.pdf');
+  while (! pdfDataSigloXV) {
+    pdfDataSigloXV = await printPdfContent('./sigloXV.pdf')
+  }
+  const codeSigloXV = extractAccessCode(pdfDataSigloXV.text)
+  console.log(codeSigloXV)
+
+}
+
+function extractAccessCode(text) {
+  const match = text.match(/C.‡digo de acceso:\s*(\S+)/);
+  return match ? match[1] : null;
+}
+
+async function getInputByCentury(page, sigloText) {
+  await page.waitForSelector('div.group'); // or something inside the block like 'span.text-sm'
+
+  const groupBlocks = page.locator('div.group');
+  const count = await groupBlocks.count();
+
+  for (let i = 0; i < count; i++) {
+    const block = groupBlocks.nth(i);
+
+    // Find the "Siglo" text inside this block only
+    const sigloSpan = block.locator('span.text-sm');
+    const spanCount = await sigloSpan.count();
+
+    for (let j = 0; j < spanCount; j++) {
+      const text = (await sigloSpan.nth(j).innerText())?.replace(/\s+/g, ' ').trim();
+
+      if (text === sigloText) {
+        const input = block.locator('input[type="text"]');
+        if (await input.count() > 0) {
+          return input.first();
+        }
+      }
+    }
   }
 
-  // await browser.close(); // Optional
+  console.error(`❌ No input found for "${sigloText}"`);
+  return null;
 }
+
 
 async function login(page) {
   const email = process.env.EMAIL;
@@ -30,7 +76,7 @@ async function login(page) {
   await page.click('text=Acceder');
 }
 
-async function downloadCodexAureusdeEchternach(page) {
+async function downloadPDF(page, tempPath) {
   await page.waitForSelector('text=Descargar PDF');
 
   const maxRetries = 6;
@@ -41,8 +87,6 @@ async function downloadCodexAureusdeEchternach(page) {
         page.waitForEvent('download', { timeout: 3000 }),
         page.click('text=Descargar PDF'),
       ]);
-
-      const tempPath = './temp.pdf';
       await download.saveAs(tempPath);
       return tempPath;
     } catch (error) {
