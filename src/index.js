@@ -13,22 +13,22 @@ async function iniciarAventura() {
 
   // siglo XIV
   const codeSigloXIV = await unlockSigloXIV(page)
-  console.log('CODE SIGLO XIV: ', codeSigloXIV)
+  console.log('🔑 CODE SIGLO XIV: ', codeSigloXIV)
   
   // siglo XV
   const codeSigloXV = await unlockSigloXV(page, codeSigloXIV)
-  console.log("CODE SIGLO XV: ", codeSigloXV)
+  console.log("🔑 CODE SIGLO XV: ", codeSigloXV)
 
   // siglo XVI
   const codeSigloXVI = await unlockSigloXVI(page, codeSigloXV)
-  console.log("CODE SIGLO XVI: ", codeSigloXVI)
+  console.log("🔑 CODE SIGLO XVI: ", codeSigloXVI)
 
   // navigate to page 2
   await page.getByRole('button', { name: '2' }).click()
 
   // siglo XVII
   const codeSigloXVII = await unlockSigloXVII(page, codeSigloXVI)
-  console.log("CODE SIGLO XVII: ", codeSigloXVII)
+  console.log("🔑 CODE SIGLO XVII: ", codeSigloXVII)
 
   // siglo XVIII
   const sigloXVIII = await unlockSigloXVIII(page, codeSigloXVII)
@@ -38,46 +38,48 @@ async function iniciarAventura() {
 }
 
 async function unlockSigloXIV(page) {
-  const path = await downloadPDF(page, './sigloXIV.pdf');
-  console.log('📄 Archivo descargado en:', path);
-  let pdfData = await printPdfContent(path);
+  const pdfPath = await downloadPDF(page, './sigloXIV.pdf');
+  let pdfData = await printPdfContent(pdfPath);
   await page.waitForTimeout(1000);
   while (! pdfData) {
-    console.warn('❌ Retrying parse...');
-    pdfData = await printPdfContent(path)
+    console.warn(`Retrying parse ${pdfPath}...`);
+    pdfData = await printPdfContent(pdfPath)
   }
   return extractAccessCode(pdfData.text) 
 }
 
 async function unlockSigloXV(page, codeSigloXIV) {
+  const pdfPath = './sigloXV.pdf'
   const inputSigloXV = await getInputByCentury(page, "Siglo XV")
   await inputSigloXV.fill(codeSigloXIV);
   await inputSigloXV.press('Enter');
-  await downloadPDF(page, './sigloXV.pdf');
-  let pdfDataSigloXV = await printPdfContent('./sigloXV.pdf');
+  await downloadPDF(page, pdfPath);
+  let pdfDataSigloXV = await printPdfContent(pdfPath);
   while (! pdfDataSigloXV) {
-    console.warn('❌ Retrying parse...');
-    pdfDataSigloXV = await printPdfContent('./sigloXV.pdf')
+    console.warn(`Retrying parse ${pdfPath}...`);
+    pdfDataSigloXV = await printPdfContent(pdfPath)
   }
   const codeSigloXV = extractAccessCode(pdfDataSigloXV.text)
   return codeSigloXV
 }
 
 async function unlockSigloXVI(page, codeSigloXV) {
+  const pdfPath = './sigloXVI.pdf'
   const inputSigloXVI = await getInputByCentury(page, "Siglo XVI")
   await inputSigloXVI.fill(codeSigloXV);
   await inputSigloXVI.press('Enter');
-  await downloadPDF(page, './sigloXVI.pdf');
-  let pdfDataSigloXVI = await printPdfContent('./sigloXVI.pdf');
+  await downloadPDF(page, pdfPath);
+  let pdfDataSigloXVI = await printPdfContent(pdfPath);
   while (! pdfDataSigloXVI) {
-    console.warn('❌ Retrying parse...');
-    pdfDataSigloXVI = await printPdfContent('./sigloXVI.pdf')
+    console.warn(`Retrying parse ${pdfPath}...`);
+    pdfDataSigloXVI = await printPdfContent(pdfPath)
   }
   const codeSigloXVI = extractAccessCode(pdfDataSigloXVI.text)
   return codeSigloXVI
 }
 
 async function unlockSigloXVII(page, codeSigloXVI) {
+  const pdfPath = './sigloXVII.pdf'
   await clickVerDocumentacion(page, 'Siglo XVII')
   const apiInfo = await extractApiInfoFromModal(page)
   const manuscritoSigloXVII = await getManuscritoBySiglo(page, 'Siglo XVII')
@@ -89,11 +91,11 @@ async function unlockSigloXVII(page, codeSigloXVI) {
   await inputSigloXVII.fill(passwordSigloXVII);
   await inputSigloXVII.press('Enter');
   await closeModalButton.click();
-  await downloadPDF(page, './sigloXVII.pdf');
-  let pdfDataSigloXVII = await printPdfContent('./sigloXVII.pdf');
+  await downloadPDF(page, pdfPath);
+  let pdfDataSigloXVII = await printPdfContent(pdfPath);
   while (! pdfDataSigloXVII) {
-    console.warn('❌ Retrying parse...');
-    pdfDataSigloXVII = await printPdfContent('./sigloXVII.pdf')
+    console.warn(`Retrying parse ${pdfPath}...`);
+    pdfDataSigloXVII = await printPdfContent(pdfPath)
   }
   const codeSigloXVII = extractAccessCode(pdfDataSigloXVII.text)
   return codeSigloXVII
@@ -115,7 +117,7 @@ async function unlockSigloXVIII(page, codeSigloXVII) {
   await downloadPDF(page, pdfPath);
   let pdfData = await printPdfContent(pdfPath);
   while (! pdfData) {
-    console.warn(`❌ Retrying parse ${pdfPath}...`);
+    console.warn(`Retrying parse ${pdfPath}...`);
     pdfData = await printPdfContent(pdfPath)
   }
   return pdfData.text
@@ -264,12 +266,12 @@ async function downloadPDF(page, tempPath) {
   const maxRetries = 6;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Intento ${attempt} de descarga...`);
       const [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 3000 }),
         page.click('text=Descargar PDF'),
       ]);
       await download.saveAs(tempPath);
+      console.log(`✅ Se descargó ${tempPath}...`);
       return tempPath;
     } catch (error) {
       console.warn(`⚠️ Falló el intento ${attempt}:`, error.message);
