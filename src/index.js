@@ -29,6 +29,10 @@ async function iniciarAventura() {
   // siglo XVII
   const codeSigloXVII = await unlockSigloXVII(page, codeSigloXVI)
   console.log("CODE SIGLO XVII: ", codeSigloXVII)
+
+  // siglo XVIII
+  const sigloXVIII = await unlockSigloXVIII(page, codeSigloXVII)
+  console.log(sigloXVIII)
   
 
 }
@@ -93,6 +97,28 @@ async function unlockSigloXVII(page, codeSigloXVI) {
   }
   const codeSigloXVII = extractAccessCode(pdfDataSigloXVII.text)
   return codeSigloXVII
+}
+
+async function unlockSigloXVIII(page, codeSigloXVII) {
+  const pdfPath = './sigloXVIII.pdf'
+  await clickVerDocumentacion(page, 'Siglo XVIII')
+  const apiInfo = await extractApiInfoFromModal(page)
+  const manuscrito = await getManuscritoBySiglo(page, 'Siglo XVIII')
+  const responseChallenge = await callChallengeEndpoint(apiInfo, manuscrito, codeSigloXVII)
+  const password = await decodeChallengePassword(responseChallenge.challenge)
+  const closeModalButton = page.locator('button[aria-label="Cerrar modal"]');
+  await closeModalButton.click();
+  const input = await getInputByCentury(page, "Siglo XVIII")
+  await input.fill(password);
+  await input.press('Enter');
+  await closeModalButton.click();
+  await downloadPDF(page, pdfPath);
+  let pdfData = await printPdfContent(pdfPath);
+  while (! pdfData) {
+    console.warn(`❌ Retrying parse ${pdfPath}...`);
+    pdfData = await printPdfContent(pdfPath)
+  }
+  return pdfData.text
 }
 
 async function getManuscritoBySiglo(page, siglo) {
@@ -160,7 +186,7 @@ function decodeChallengePassword(challenge) {
 
 async function extractApiInfoFromModal(page) {
   // Wait for the modal to appear
-  const modal = page.locator('.sherpa-card', { hasText: 'Desafío del Necronomicon' });
+  const modal = page.locator('.sherpa-card');
   await modal.waitFor();
 
   // Extract the endpoint URL
@@ -257,5 +283,3 @@ async function downloadPDF(page, tempPath) {
 }
 
 iniciarAventura();
-
-module.exports = iniciarAventura;
