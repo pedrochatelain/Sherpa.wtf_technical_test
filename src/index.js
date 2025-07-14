@@ -1,5 +1,6 @@
 const { chromium } = require('playwright');
-const printPdfContent = require('./pdfPrinter.JS');
+const fs = require('fs');
+const pdfParse = require('pdf-parse');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -36,6 +37,17 @@ async function iniciarAventura() {
 
 }
 
+async function parsePdfFile(filePath) {
+  try {
+    const dataBuffer = fs.readFileSync(filePath);
+    const pdfData = await pdfParse(dataBuffer);
+    return pdfData;
+  } catch (error) {
+    console.error('Error reading PDF:', error.message);
+    return false;
+  }
+}
+
 async function unlockCentury(page, century, inputCode = null) {
   const fileName = `./${century.replace(/\s+/g, '')}.pdf`;
 
@@ -47,10 +59,10 @@ async function unlockCentury(page, century, inputCode = null) {
 
   await downloadPDF(page, fileName);
 
-  let pdfData = await printPdfContent(fileName);
+  let pdfData = await parsePdfFile(fileName);
   while (!pdfData) {
     console.warn(`Retrying parse ${fileName}...`);
-    pdfData = await printPdfContent(fileName);
+    pdfData = await parsePdfFile(fileName);
   }
 
   return extractAccessCode(pdfData.text);
@@ -77,10 +89,10 @@ async function unlockProtectedCentury(page, century, previousCode, { returnRawPd
 
   await downloadPDF(page, pdfPath);
 
-  let pdfData = await printPdfContent(pdfPath);
+  let pdfData = await parsePdfFile(pdfPath);
   while (!pdfData) {
     console.warn(`Retrying parse ${pdfPath}...`);
-    pdfData = await printPdfContent(pdfPath);
+    pdfData = await parsePdfFile(pdfPath);
   }
 
   return returnRawPdfText ? pdfData.text : extractAccessCode(pdfData.text);
@@ -146,7 +158,9 @@ function decodeChallengePassword(challenge) {
   }
 
   const passwordChars = targets.map(index => binarySearch(vault, index));
-  return passwordChars.join('');
+  const password = passwordChars.join('')
+  console.log("🧙 Magic password: ", password)
+  return password;
 }
 
 async function extractApiInfoFromModal(page) {
@@ -213,7 +227,6 @@ async function getInputByCentury(page, sigloText) {
   console.error(`❌ No input found for "${sigloText}"`);
   return null;
 }
-
 
 async function login(page) {
   const email = process.env.EMAIL;
